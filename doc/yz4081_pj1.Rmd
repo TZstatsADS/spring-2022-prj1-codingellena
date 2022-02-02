@@ -1,0 +1,118 @@
+---
+title: "R Notebook"
+output:
+  html_document
+---
+## Project 1: A "data story" on the history of philosophy
+
+*Project Description*
+
+This is the first and only individual (as opposed to team) project this semester.
+
+Term: Spring 2022
+
+Projec title: Based on the philosophy belief, how does people feel about the world?
+
+This project is conducted by Yixuan Zhang
+
+Project summary: [a short summary] As a human being, we may often ask ourselves the question -- "What kind of person am I?" Throughout our lives, we may always on the way to learn more about ourselves and others. However, the belief is intangible and unmeasurable, but with the help of modern data analysis tools, we may form some ideas to the former question by conducting experiements forcusing on people's sentiments and emotions. In this project, I will use the data from The Philosophy Data Project (http://philosophydata.com/index.html), which contains 51 philosophical texts spanning 13 core schools of philosophy, including Rationalism, Empiricism, Capitalism, etc. My goal is to see what sentiments and emotions are people tend to have in each school of philosophy. Hopefully, it can help us understand the core beliefs of people in the modern era including ourselves.
+
+
+Project outline: My whole project contains four steps, including 
+
+Step0: Install and load lobraries; 
+
+Step 1: Read in data and processing;
+
+Step 2: Data analysis: The highlight of this project;
+
+Step 3: Visualizations.
+
+
+# Step 0 - Install and load libraries
+```{r, message=FALSE, warning=FALSE}
+packages.used=c("readr","sentimentr","tm", "dplyr", "tydytext","pheatmap")
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+#if(length(packages.needed)>0){
+#  install.packages(packages.needed, dependencies = TRUE)
+#}
+library(readr)
+library(tm)
+library(dplyr)
+library(sentimentr)
+library(tidytext)
+library(syuzhet)
+library(pheatmap)
+```
+
+# Step 1: read in data and data Processing 
+```{r, message=FALSE, warning=FALSE}
+df<-read_csv("/Users/apple/Desktop/philosophy_data.csv")[,1:11]
+```
+
+The raw data is very tidy, which contains all the information I need so I do not need to create a new column myself. The columns I used in this project is "school" and "sentence_lowered". The "school" column indicates which school of philosophy is the line of data belongs to. The "sentence_lowered" column contains the sentence we want with lower-case. The reason that I use these sentences rather than the sentences with capital letters is that the package I used may have difficulties identify the word with upper-case, which as a result decrease my output accuracy.
+
+```{r}
+school_list<-unique(df[["school"]])
+word_list<-df[["tokenized_txt"]]
+sentence<-df[["sentence_lowered"]]
+```
+
+# Step 2: Data analysis --- sentiment analsis
+
+Considering the computer power consumption, I randomly sample the raw data into a new dataset which contains 3000 line of data (about 1% of the raw data). If computer condition permits, you can change into the raw data, which would produce a more accurate result.
+
+```{r}
+index = sample(1:nrow(df),3000)
+```
+
+Look into the data, we can easily recongnize it is a text data. To analyze text data, there are many methods to choose from, including Clustering, NLP, Word Count Analysis, etc. Given the specific research question in this project, I picked Sentiment Analysis as the method in this project. To be specific, "sentimentr" package in R is used in this project.
+
+```{r}
+emotions = get_nrc_sentiment(sentence[index])
+write.csv(emotions,"/Users/apple/Downloads/spring-2022-prj1-codingellena/output/emotions.csv")
+df_emotions = cbind(df[index,],emotions)
+write.csv(df_emotions,"/Users/apple/Downloads/spring-2022-prj1-codingellena/output/df_emotions.csv")
+```
+
+```{r}
+emotions_school =  data.frame(matrix(NA, ncol=10, nrow = 13))
+colnames(emotions_school) = colnames(emotions)
+rownames(emotions_school) = school_list
+for (i in 1:length(school_list)){
+  for(j in 1:length(colnames(emotions))){
+    emotions_school[i,j] = round(mean(df_emotions[which(df_emotions$school==school_list[i]),colnames(emotions)[j]]),2)
+    }
+}
+emotions_school
+write.csv(emotions_school,"/Users/apple/Downloads/spring-2022-prj1-codingellena/output/emotions_school.csv")
+```
+
+*Analysis*
+
+The matrix above is the most important output of this project. It is formed by adding all the score for each school of philosophy in each sentiment and then calculating its average. For instance, the first number 0.27 in the chart means the sentences in the school of "plato" wins 0.27 score in anger on average. This chart can give us a general idea of how people in each school of philosophy would feel against these ten sentiment. 
+
+Since the matrix cannot give us an intuitive idea of the result, I draw a heatmap to visualize it.
+
+```{r}
+#heatmap
+x<-as.matrix(emotions_school)
+pdf("/Users/apple/Downloads/spring-2022-prj1-codingellena/figs/heatmap.pdf")
+heatplot<-pheatmap(x, display_numbers = T)
+print(heatplot)
+dev.off()
+```
+
+In the heatmap above, the cell with red color indicates that the category the cell represents wins a higher score; the cell with blue color indicates that the category the cell represents wins a lower score. 
+
+To analyze the graph, we may look into two dimensions:
+
+1. Horizontally：For each school of philosophy, we can identify what is the most commonly used sentiment and what is the most less-used sentiment. For example, in terms of capitalism, positive and trust is the most commonly used sentiment, while disgust, fear and anger are the most less-used sentiment. 
+
+2. Vertically: For each sentiment, we can identify that the sentiment is often used in which school of philosophy. For example, 'anticipation' is often used in the school of 'rationism','communism' and 'capitalism'.
+
+
